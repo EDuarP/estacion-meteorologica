@@ -16,72 +16,52 @@ const byte LIGHT = A1;
 const byte BATT = A2;
 const byte WDIR = A0;
 
-// Variables globales
-long lastSecond;
-byte seconds;
-byte seconds_2m;
-byte minutes;
-byte minutes_10m;
+// Tiempo
+unsigned long lastSampleMs = 0;
 
-long lastWindCheck = 0;
-volatile long lastWindIRQ = 0;
-volatile byte windClicks = 0;
+// Contadores por interrupción
+volatile unsigned long windClicks = 0;
+volatile unsigned long lastWindIRQ = 0;
 
-byte windspdavg[120];
+volatile unsigned long rainTipsWindow = 0;
+volatile unsigned long totalRainTips = 0;
+volatile unsigned long lastRainIRQ = 0;
 
-#define WIND_DIR_AVG_SIZE 120
-int winddiravg[WIND_DIR_AVG_SIZE];
-float windgust_10m[10];
-int windgustdirection_10m[10];
-volatile float rainHour[60];
-
-// Variables meteorológicas
-int winddir = 0;
-float windspeedmph = 0;
-float windgustmph = 0;
-int windgustdir = 0;
-float windspdmph_avg2m = 0;
-int winddir_avg2m = 0;
-float windgustmph_10m = 0;
-int windgustdir_10m = 0;
+// Variables leídas
 float humidity = 0;
 float tempf = 0;
 float tempc = 0;
-float rainin = 0;
-volatile float dailyrainin = 0;
 float pressure = 0;
-float batt_lvl = 11.8;
-float light_lvl = 455;
+float batt_lvl = 0;
+float light_lvl = 0;
+int winddir = 0;
 
-// Lluvia
-volatile unsigned long raintime, rainlast, raininterval, rain;
+// Constantes del sensor
+const float WIND_MPH_PER_HZ = 1.492;   // clicks/s -> mph
+const float MPH_TO_KPH = 1.60934;
+const float RAIN_IN_PER_TIP = 0.011;
+const float IN_TO_MM = 25.4;
 
 // Interrupción lluvia
-void rainIRQ()
-{
-  raintime = millis();
-  raininterval = raintime - rainlast;
-
-  if (raininterval > 10)
-  {
-    dailyrainin += 0.011;   // pulgadas por tip
-    rainHour[minutes] += 0.011;
-    rainlast = raintime;
+void rainIRQ() {
+  unsigned long now = millis();
+  if (now - lastRainIRQ > 10) {
+    lastRainIRQ = now;
+    rainTipsWindow++;
+    totalRainTips++;
   }
 }
 
 // Interrupción viento
-void wspeedIRQ()
-{
-  if (millis() - lastWindIRQ > 10)
-  {
-    lastWindIRQ = millis();
+void wspeedIRQ() {
+  unsigned long now = millis();
+  if (now - lastWindIRQ > 10) {
+    lastWindIRQ = now;
     windClicks++;
   }
 }
 
-void setup()
-{
+void setup() {
   Serial.begin(115200);
 
   pinMode(STAT1, OUTPUT);
@@ -92,6 +72,7 @@ void setup()
 
   pinMode(REFERENCE_3V3, INPUT);
   pinMode(LIGHT, INPUT);
+  pinMode(WDIR, INPUT);
 
   myPressure.begin();
   myPressure.setModeBarometer();
@@ -100,160 +81,74 @@ void setup()
 
   myHumidity.begin();
 
-  seconds = 0;
-  seconds_2m = 0;
-  minutes = 0;
-  minutes_10m = 0;
-  lastSecond = millis();
-  lastWindCheck = millis();
-
   attachInterrupt(digitalPinToInterrupt(RAIN), rainIRQ, FALLING);
   attachInterrupt(digitalPinToInterrupt(WSPEED), wspeedIRQ, FALLING);
 
-  interrupts();
+  lastSampleMs = millis();
 
   Serial.println("{\"status\":\"weather_shield_online\"}");
 }
 
-void loop()
-{
-  if (millis() - lastSecond >= 1000)
-  {
+void loop() {
+  if (millis() - lastSampleMs >= 1000) {
     digitalWrite(STAT1, HIGH);
-    lastSecond += 1000;
 
-    if (++seconds_2m > 119) seconds_2m = 0;
+    unsigned long now = millis();
+    unsigned long elapsedMs = now - lastSampleMs;
+    lastSampleMs = now;
 
-    float currentSpeed = get_wind_speed();
-    windspeedmph = currentSpeed;
+    // Captura atómica
+    noInterrupts();
+    unsigned long clicks = windClicks;
+    unsigned long rainTips = rainTipsWindow;
+    unsigned long totalTips = totalRainTips;
+    windClicks = 0;
+    rainTipsWindow = 0;
+    interrupts();
 
-    int currentDirection = get_wind_direction();
-    windspdavg[seconds_2m] = (int)currentSpeed;
-    winddiravg[seconds_2m] = currentDirection;
-
-    if (currentSpeed > windgust_10m[minutes_10m])
-    {
-      windgust_10m[minutes_10m] = currentSpeed;
-      windgustdirection_10m[minutes_10m] = currentDirection;
-    }
-
-    if (currentSpeed > windgustmph)
-    {
-      windgustmph = currentSpeed;
-      windgustdir = currentDirection;
-    }
-
-    if (++seconds > 59)
-    {
-      seconds = 0;
-
-      if (++minutes > 59) minutes = 0;
-      if (++minutes_10m > 9) minutes_10m = 0;
-
-      rainHour[minutes] = 0;
-      windgust_10m[minutes_10m] = 0;
-    }
-
-    printWeatherJSON();
+    readSensors();
+    printWeatherJSON(clicks, rainTips, totalTips, elapsedMs);
 
     digitalWrite(STAT1, LOW);
   }
 
-  delay(50);
+  delay(20);
 }
 
-void calcWeather()
-{
-  winddir = get_wind_direction();
-
-  float temp = 0;
-  for (int i = 0; i < 120; i++)
-    temp += windspdavg[i];
-  temp /= 120.0;
-  windspdmph_avg2m = temp;
-
-  long sum = winddiravg[0];
-  int D = winddiravg[0];
-  for (int i = 1; i < WIND_DIR_AVG_SIZE; i++)
-  {
-    int delta = winddiravg[i] - D;
-
-    if (delta < -180) D += delta + 360;
-    else if (delta > 180) D += delta - 360;
-    else D += delta;
-
-    sum += D;
-  }
-
-  winddir_avg2m = sum / WIND_DIR_AVG_SIZE;
-  if (winddir_avg2m >= 360) winddir_avg2m -= 360;
-  if (winddir_avg2m < 0) winddir_avg2m += 360;
-
-  windgustmph_10m = 0;
-  windgustdir_10m = 0;
-  for (int i = 0; i < 10; i++)
-  {
-    if (windgust_10m[i] > windgustmph_10m)
-    {
-      windgustmph_10m = windgust_10m[i];
-      windgustdir_10m = windgustdirection_10m[i];
-    }
-  }
-
+void readSensors() {
   humidity = myHumidity.readHumidity();
   tempf = myPressure.readTempF();
   tempc = (tempf - 32.0) * 5.0 / 9.0;
-
-  rainin = 0;
-  for (int i = 0; i < 60; i++)
-    rainin += rainHour[i];
-
   pressure = myPressure.readPressure();
-
   light_lvl = get_light_level();
   batt_lvl = get_battery_level();
+  winddir = get_wind_direction();
 }
 
-float get_light_level()
-{
+float get_light_level() {
   float operatingVoltage = analogRead(REFERENCE_3V3);
   float lightSensor = analogRead(LIGHT);
 
+  if (operatingVoltage <= 0) return -1;
+
   operatingVoltage = 3.3 / operatingVoltage;
   lightSensor = operatingVoltage * lightSensor;
-
   return lightSensor;
 }
 
-float get_battery_level()
-{
+float get_battery_level() {
   float operatingVoltage = analogRead(REFERENCE_3V3);
   float rawVoltage = analogRead(BATT);
+
+  if (operatingVoltage <= 0) return -1;
 
   operatingVoltage = 3.30 / operatingVoltage;
   rawVoltage = operatingVoltage * rawVoltage;
   rawVoltage *= 4.90;
-
   return rawVoltage;
 }
 
-float get_wind_speed()
-{
-  float deltaTime = millis() - lastWindCheck;
-  deltaTime /= 1000.0;
-
-  float windSpeed = (float)windClicks / deltaTime;
-
-  windClicks = 0;
-  lastWindCheck = millis();
-
-  windSpeed *= 1.492; // mph
-
-  return windSpeed;
-}
-
-int get_wind_direction()
-{
+int get_wind_direction() {
   unsigned int adc = analogRead(WDIR);
 
   if (adc < 380) return 113;
@@ -276,30 +171,42 @@ int get_wind_direction()
   return -1;
 }
 
-void printWeatherJSON()
-{
-  calcWeather();
+void printWeatherJSON(unsigned long clicks, unsigned long rainTips, unsigned long totalTips, unsigned long elapsedMs) {
+  float elapsed_s = elapsedMs / 1000.0;
 
-  float windspeed_kph = windspeedmph * 1.60934;
-  float windavg_kph = windspdmph_avg2m * 1.60934;
-  float windgust_kph = windgustmph * 1.60934;
-  float windgust10m_kph = windgustmph_10m * 1.60934;
-  float rain_mm_1h = rainin * 25.4;
-  float rain_mm_day = dailyrainin * 25.4;
+  // Velocidad del viento
+  float clicks_per_sec = 0.0;
+  float wind_mph = 0.0;
+  float wind_kph = 0.0;
+
+  if (elapsed_s > 0.0) {
+    clicks_per_sec = clicks / elapsed_s;
+    wind_mph = clicks_per_sec * WIND_MPH_PER_HZ;
+    wind_kph = wind_mph * MPH_TO_KPH;
+  }
+
+  // Lluvia
+  float rain_mm_window = rainTips * RAIN_IN_PER_TIP * IN_TO_MM;
+  float rain_mm_h = 0.0;
+  if (elapsed_s > 0.0) {
+    rain_mm_h = rain_mm_window * (3600.0 / elapsed_s);
+  }
+
+  float total_rain_mm = totalTips * RAIN_IN_PER_TIP * IN_TO_MM;
+
+  int winddir_adc = analogRead(WDIR);
 
   Serial.print("{");
   Serial.print("\"winddir_deg\":"); Serial.print(winddir); Serial.print(",");
-  Serial.print("\"windspeed_kph\":"); Serial.print(windspeed_kph, 2); Serial.print(",");
-  Serial.print("\"windgust_kph\":"); Serial.print(windgust_kph, 2); Serial.print(",");
-  Serial.print("\"windgustdir_deg\":"); Serial.print(windgustdir); Serial.print(",");
-  Serial.print("\"windavg2m_kph\":"); Serial.print(windavg_kph, 2); Serial.print(",");
-  Serial.print("\"winddir_avg2m_deg\":"); Serial.print(winddir_avg2m); Serial.print(",");
-  Serial.print("\"windgust10m_kph\":"); Serial.print(windgust10m_kph, 2); Serial.print(",");
-  Serial.print("\"windgustdir10m_deg\":"); Serial.print(windgustdir_10m); Serial.print(",");
+  Serial.print("\"winddir_adc\":"); Serial.print(winddir_adc); Serial.print(",");
+  Serial.print("\"wind_clicks\":"); Serial.print(clicks); Serial.print(",");
+  Serial.print("\"wind_kph\":"); Serial.print(wind_kph, 3); Serial.print(",");
+  Serial.print("\"sample_ms\":"); Serial.print(elapsedMs); Serial.print(",");
+  Serial.print("\"rain_tips\":"); Serial.print(rainTips); Serial.print(",");
+  Serial.print("\"rain_mm_h\":"); Serial.print(rain_mm_h, 3); Serial.print(",");
+  Serial.print("\"rain_total_mm\":"); Serial.print(total_rain_mm, 3); Serial.print(",");
   Serial.print("\"humidity_rh\":"); Serial.print(humidity, 2); Serial.print(",");
   Serial.print("\"temp_c\":"); Serial.print(tempc, 2); Serial.print(",");
-  Serial.print("\"rain_in_1h\":"); Serial.print(rainin, 3); Serial.print(",");
-  Serial.print("\"rain_mm_1h\":"); Serial.print(rain_mm_1h, 2); Serial.print(",");
   Serial.print("\"pressure_pa\":"); Serial.print(pressure, 2); Serial.print(",");
   Serial.print("\"battery_v\":"); Serial.print(batt_lvl, 2); Serial.print(",");
   Serial.print("\"light_v\":"); Serial.print(light_lvl, 2); Serial.print(",");
