@@ -289,24 +289,17 @@ void printWeatherJSON()
 
   Serial.print("{");
   Serial.print("\"winddir_deg\":"); Serial.print(winddir); Serial.print(",");
-  Serial.print("\"windspeed_mph\":"); Serial.print(windspeedmph, 2); Serial.print(",");
   Serial.print("\"windspeed_kph\":"); Serial.print(windspeed_kph, 2); Serial.print(",");
-  Serial.print("\"windgust_mph\":"); Serial.print(windgustmph, 2); Serial.print(",");
   Serial.print("\"windgust_kph\":"); Serial.print(windgust_kph, 2); Serial.print(",");
   Serial.print("\"windgustdir_deg\":"); Serial.print(windgustdir); Serial.print(",");
-  Serial.print("\"windavg2m_mph\":"); Serial.print(windspdmph_avg2m, 2); Serial.print(",");
   Serial.print("\"windavg2m_kph\":"); Serial.print(windavg_kph, 2); Serial.print(",");
   Serial.print("\"winddir_avg2m_deg\":"); Serial.print(winddir_avg2m); Serial.print(",");
-  Serial.print("\"windgust10m_mph\":"); Serial.print(windgustmph_10m, 2); Serial.print(",");
   Serial.print("\"windgust10m_kph\":"); Serial.print(windgust10m_kph, 2); Serial.print(",");
   Serial.print("\"windgustdir10m_deg\":"); Serial.print(windgustdir_10m); Serial.print(",");
   Serial.print("\"humidity_rh\":"); Serial.print(humidity, 2); Serial.print(",");
-  Serial.print("\"temp_f\":"); Serial.print(tempf, 2); Serial.print(",");
   Serial.print("\"temp_c\":"); Serial.print(tempc, 2); Serial.print(",");
   Serial.print("\"rain_in_1h\":"); Serial.print(rainin, 3); Serial.print(",");
   Serial.print("\"rain_mm_1h\":"); Serial.print(rain_mm_1h, 2); Serial.print(",");
-  Serial.print("\"rain_in_day\":"); Serial.print(dailyrainin, 3); Serial.print(",");
-  Serial.print("\"rain_mm_day\":"); Serial.print(rain_mm_day, 2); Serial.print(",");
   Serial.print("\"pressure_pa\":"); Serial.print(pressure, 2); Serial.print(",");
   Serial.print("\"battery_v\":"); Serial.print(batt_lvl, 2); Serial.print(",");
   Serial.print("\"light_v\":"); Serial.print(light_lvl, 2); Serial.print(",");
