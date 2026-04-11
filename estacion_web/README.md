@@ -1,4 +1,4 @@
-# 🌤️ Estación Meteorológica — Dashboard Web
+# Estación Meteorológica — Dashboard Web
 
 Dashboard minimalista para visualizar datos meteorológicos vía MQTT.
 
