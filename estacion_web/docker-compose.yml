@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+
+  # ── Mosquitto en localhost:1883 ──────────────────────────
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: estacion_mosquitto
+    ports:
+      - "1883:1883"   # MQTT TCP  → tu script Python publica aquí
+      - "9001:9001"   # WebSocket (opcional)
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    restart: unless-stopped
+    networks:
+      - estacion_net
+
+  # ── FastAPI ──────────────────────────────────────────────
+  backend:
+    build: ./backend
+    container_name: estacion_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MQTT_BROKER=mosquitto     # dentro de Docker usa el nombre del servicio
+      - MQTT_PORT=1883
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+    networks:
+      - estacion_net
+
+  # ── React + Vite ─────────────────────────────────────────
+  frontend:
+    build: ./frontend
+    container_name: estacion_frontend
+    ports:
+      - "3000:5173"               # http://localhost:3000
+    environment:
+      - VITE_API_URL=http://localhost:8000/api
+      - VITE_WS_URL=ws://localhost:8000/api/ws
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - estacion_net
+
+networks:
+  estacion_net:
+    driver: bridge
