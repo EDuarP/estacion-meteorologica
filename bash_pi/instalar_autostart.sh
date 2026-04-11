@@ -7,7 +7,7 @@
 #
 # ══════════════════════════════════════════════════════════
 
-SCRIPT_DIR="$HOME/Desktop/estacion-meteorologica"
+SCRIPT_DIR="$HOME/Desktop/estacion-meteorologica/bash_pi"
 AUTOSTART_DIR="$HOME/.config/autostart"
 DESKTOP_FILE="$AUTOSTART_DIR/estacion-meteorologica.desktop"
 RUNNER="$SCRIPT_DIR/autostart.sh"

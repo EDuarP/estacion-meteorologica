@@ -6,7 +6,7 @@ import paho.mqtt.client as mqtt
 SERIAL_PORT = "/dev/ttyUSB0"
 BAUD = 115200
 
-MQTT_BROKER = "192.168.1.100"
+MQTT_BROKER = "192.168.40.104"
 MQTT_PORT = 1883
 MQTT_TOPIC = "weather/station1"
 
