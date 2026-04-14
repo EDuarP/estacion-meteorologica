@@ -57,8 +57,15 @@ export const WeatherIcons = {
   ),
   luz: ({ size = 48, color = "#202124" }) => (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <path d="M24 10c-6.627 0-12 5.373-12 12 0 4.5 2.4 8.45 6 10.67V37a2 2 0 002 2h8a2 2 0 002-2v-4.33C33.6 30.45 36 26.5 36 22c0-6.627-5.373-12-12-12z" stroke={color} strokeWidth="2" strokeLinejoin="round"/>
-      <line x1="20" y1="42" x2="28" y2="42" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+      <circle cx="24" cy="24" r="8" stroke={color} strokeWidth="2"/>
+      <line x1="24" y1="6"  x2="24" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+      <line x1="24" y1="36" x2="24" y2="42" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+      <line x1="6"  y1="24" x2="12" y2="24" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+      <line x1="36" y1="24" x2="42" y2="24" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+      <line x1="9.5"  y1="9.5"  x2="13.8" y2="13.8" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+      <line x1="34.2" y1="34.2" x2="38.5" y2="38.5" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+      <line x1="38.5" y1="9.5"  x2="34.2" y2="13.8" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+      <line x1="13.8" y1="34.2" x2="9.5"  y2="38.5" stroke={color} strokeWidth="2" strokeLinecap="round"/>
     </svg>
   ),
   bateria: ({ size = 48, color = "#202124", pct = 100 }) => (
@@ -89,7 +96,7 @@ export const FIELD_CONFIG = {
   wind_kph:      { label: "Viento",         unit: "km/h", icon: "viento",      color: "#34A853", decimals: 1, bgTint: "#E6F4EA" },
   winddir_deg:   { label: "Dirección",      unit: "°",    icon: "winddir",     color: "#34A853", decimals: 0, bgTint: "#E6F4EA" },
   rain_mm_h:     { label: "Lluvia/hora",    unit: "mm/h", icon: "lluvia",      color: "#1A73E8", decimals: 2, bgTint: "#E8F0FE" },
-  rain_total_mm: { label: "Lluvia total",   unit: "mm",   icon: "lluvia",      color: "#1A73E8", decimals: 2, bgTint: "#E8F0FE" },
+  rain_total_mm: { label: "Lluvia hoy",     unit: "mm",   icon: "lluvia",      color: "#1A73E8", decimals: 2, bgTint: "#E8F0FE" },
   light_v:       { label: "Luz",            unit: "V",    icon: "luz",         color: "#F9AB00", decimals: 2, bgTint: "#FEF9E0" },
   battery_v:     { label: "Batería",        unit: "V",    icon: "bateria",     color: "#137333", decimals: 2, bgTint: "#E6F4EA" },
 }

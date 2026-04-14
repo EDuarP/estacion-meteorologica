@@ -39,7 +39,7 @@ FIELD_META = {
     "wind_kph":      {"label": "Viento",        "unit": "km/h", "icon": "viento",      "color": "#34A853", "decimals": 1},
     "winddir_deg":   {"label": "Dir. Viento",   "unit": "°",    "icon": "winddir",     "color": "#34A853", "decimals": 0},
     "rain_mm_h":     {"label": "Lluvia/hora",   "unit": "mm/h", "icon": "lluvia",      "color": "#1A73E8", "decimals": 2},
-    "rain_total_mm": {"label": "Lluvia total",  "unit": "mm",   "icon": "lluvia",      "color": "#1A73E8", "decimals": 2},
+    "rain_total_mm": {"label": "Lluvia hoy",    "unit": "mm",   "icon": "lluvia",      "color": "#1A73E8", "decimals": 2},
     "light_v":       {"label": "Luz",           "unit": "V",    "icon": "luz",         "color": "#F9AB00", "decimals": 2},
     "battery_v":     {"label": "Batería",       "unit": "V",    "icon": "bateria",     "color": "#137333", "decimals": 2},
 }

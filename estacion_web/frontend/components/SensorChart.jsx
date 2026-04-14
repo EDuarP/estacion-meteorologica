@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { format, parseISO } from 'date-fns'
 import { api } from '../services/api'
@@ -28,16 +28,18 @@ const Tip = ({ active, payload, label, cfg }) => {
   )
 }
 
-export function SensorChart({ field }) {
+export function SensorChart({ field, lastUpdate }) {
   const [data, setData]   = useState([])
   const [stats, setStats] = useState(null)
   const [range, setRange] = useState(RANGES[2])
   const [loading, setLoading] = useState(false)
+  const lastFetchRef = useRef(0)
   const cfg = FIELD_CONFIG[field] || { color: '#4285F4', unit: '', decimals: 1, label: field }
 
-  useEffect(() => {
+  const doFetch = useCallback(() => {
     if (!field) return
     setLoading(true)
+    lastFetchRef.current = Date.now()
     Promise.all([
       api.getHistory(field, range.hours),
       api.getStats(field, range.hours),
@@ -49,6 +51,20 @@ export function SensorChart({ field }) {
       setStats(st)
     }).finally(() => setLoading(false))
   }, [field, range])
+
+  // Fetch inicial y cuando cambia el campo o el rango
+  useEffect(() => {
+    lastFetchRef.current = 0 // resetea throttle al cambiar campo/rango
+    doFetch()
+  }, [doFetch])
+
+  // Refresca al llegar datos nuevos por WebSocket (throttle: 1 vez cada 15 s)
+  useEffect(() => {
+    if (!lastUpdate) return
+    if (Date.now() - lastFetchRef.current < 15_000) return
+    doFetch()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastUpdate])
 
   if (!field) return (
     <div style={{ height: 280, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
@@ -70,26 +86,18 @@ export function SensorChart({ field }) {
             {cfg.label}
           </p>
           {stats && (
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-                <span style={{ fontSize: 34, fontWeight: 300, color: '#202124', fontFamily: "'Familjen Grotesk', sans-serif", letterSpacing: '-0.02em' }}>
-                  {stats.avg ?? '—'}
-                </span>
-                <span style={{ fontSize: 13, color: '#9AA0A6' }}>{cfg.unit}</span>
-              </div>
-              <div style={{ display: 'flex', gap: 16 }}>
-                {[['Mín', stats.min], ['Máx', stats.max]].map(([l, v]) => (
-                  <div key={l}>
-                    <p style={{ margin: 0, fontSize: 9, color: '#BDC1C6', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: "'DM Sans', sans-serif" }}>{l}</p>
-                    <p style={{ margin: 0, fontSize: 13, color: '#5F6368', fontFamily: "'Familjen Grotesk', sans-serif" }}>
-                      {v ?? '—'} <span style={{ fontSize: 10, color: '#BDC1C6' }}>{cfg.unit}</span>
-                    </p>
-                  </div>
-                ))}
-                <div>
-                  <p style={{ margin: 0, fontSize: 9, color: '#BDC1C6', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: "'DM Sans', sans-serif" }}>Lecturas</p>
-                  <p style={{ margin: 0, fontSize: 13, color: '#5F6368', fontFamily: "'Familjen Grotesk', sans-serif" }}>{stats.count}</p>
+            <div style={{ display: 'flex', gap: 16, marginTop: 4 }}>
+              {[['Mín', stats.min], ['Máx', stats.max], ['Prom', stats.avg]].map(([l, v]) => (
+                <div key={l}>
+                  <p style={{ margin: 0, fontSize: 9, color: '#BDC1C6', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: "'DM Sans', sans-serif" }}>{l}</p>
+                  <p style={{ margin: 0, fontSize: 13, color: '#5F6368', fontFamily: "'Familjen Grotesk', sans-serif" }}>
+                    {v ?? '—'} <span style={{ fontSize: 10, color: '#BDC1C6' }}>{cfg.unit}</span>
+                  </p>
                 </div>
+              ))}
+              <div>
+                <p style={{ margin: 0, fontSize: 9, color: '#BDC1C6', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: "'DM Sans', sans-serif" }}>Lecturas</p>
+                <p style={{ margin: 0, fontSize: 13, color: '#5F6368', fontFamily: "'Familjen Grotesk', sans-serif" }}>{stats.count}</p>
               </div>
             </div>
           )}

@@ -7,7 +7,8 @@ export const api = {
     fetch(`${BASE}/history?field=${field}&hours=${hours}&limit=${limit}`).then(r => r.json()),
   getStats:   (field, hours=24)         =>
     fetch(`${BASE}/stats?field=${field}&hours=${hours}`).then(r => r.json()),
-  getFields:  ()                        => fetch(`${BASE}/fields`).then(r => r.json()),
+  getFields:     ()                        => fetch(`${BASE}/fields`).then(r => r.json()),
+  getRainToday:  ()                        => fetch(`${BASE}/rain_today`).then(r => r.json()),
 }
 
 export { WS as WS_URL }

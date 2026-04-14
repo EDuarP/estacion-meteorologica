@@ -2,6 +2,9 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 import json
 
+COLOMBIA_TZ = timezone(timedelta(hours=-5))
+MM_PER_TIP  = 0.011 * 25.4   # 0.2794 mm/tip
+
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -88,6 +91,29 @@ async def get_stats(
         "count":  row[3],
         "hours":  hours,
         "unit":   FIELD_META.get(field, {}).get("unit", ""),
+    }
+
+
+@router.get("/rain_today")
+async def get_rain_today(db: AsyncSession = Depends(get_db)):
+    """Lluvia acumulada desde medianoche (hora Colombia, UTC-5)."""
+    now_co = datetime.now(COLOMBIA_TZ)
+    midnight_co = now_co.replace(hour=0, minute=0, second=0, microsecond=0)
+    midnight_utc = midnight_co.astimezone(timezone.utc)
+
+    result = await db.execute(
+        select(func.sum(WeatherReading.rain_tips))
+        .where(
+            WeatherReading.timestamp >= midnight_utc,
+            WeatherReading.rain_tips.isnot(None),
+        )
+    )
+    total_tips = result.scalar() or 0
+    rain_today_mm = round(total_tips * MM_PER_TIP, 2)
+
+    return {
+        "rain_today_mm": rain_today_mm,
+        "since": midnight_co.isoformat(),
     }
 
 

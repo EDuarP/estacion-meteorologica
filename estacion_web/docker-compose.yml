@@ -6,6 +6,7 @@ services:
   mosquitto:
     image: eclipse-mosquitto:2.0
     container_name: estacion_mosquitto
+    entrypoint: ["/bin/sh", "-c", "rm -f /mosquitto/data/mosquitto.db && exec /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf"]
     ports:
       - "1883:1883"   # MQTT TCP  → tu script Python publica aquí
       - "9001:9001"   # WebSocket (opcional)

@@ -15,7 +15,13 @@ def main():
     time.sleep(2)
 
     client = mqtt.Client()
-    client.connect(MQTT_BROKER, MQTT_PORT, 60)
+    while True:
+        try:
+            client.connect(MQTT_BROKER, MQTT_PORT, 60)
+            break
+        except Exception as e:
+            print(f"Error conectando a MQTT: {e}. Reintentando en 5s...")
+            time.sleep(5)
     client.loop_start()
 
     while True:

@@ -1,17 +1,19 @@
 import { useState, useCallback, useEffect } from 'react'
-import { SensorCard } from './components/SensorCard'
-import { SensorChart } from './components/SensorChart'
-import { WeatherIcons, FIELD_CONFIG, PRIMARY_FIELDS, SECONDARY_FIELDS } from './components/WeatherIcons'
-import { useWebSocket } from './hooks/useWebSocket'
-import { api } from './services/api'
+import { SensorCard } from '../components/SensorCard'
+import { SensorChart } from '../components/SensorChart'
+import { WeatherIcons, FIELD_CONFIG, PRIMARY_FIELDS, SECONDARY_FIELDS } from '../components/WeatherIcons'
+import { useWebSocket } from '../hooks/useWebSocket'
+import { api } from '../services/api'
 
 const WIND_DIRS = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"]
 const windLabel = deg => deg != null ? WIND_DIRS[Math.round(deg / 22.5) % 16] : '—'
 
 export default function App() {
   const [data, setData]           = useState({})
+  const [rainToday, setRainToday] = useState(null)
   const [activeField, setActive]  = useState('temp_c')
   const [time, setTime]           = useState(new Date())
+  const [dataVersion, setDataVersion] = useState(0)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
@@ -22,8 +24,22 @@ export default function App() {
     api.getLatest().then(d => { if (d && typeof d === 'object') setData(d) }).catch(() => {})
   }, [])
 
+  useEffect(() => {
+    const fetchRainToday = () => {
+      api.getRainToday().then(d => {
+        if (d && d.rain_today_mm != null) setRainToday(d.rain_today_mm)
+      }).catch(() => {})
+    }
+    fetchRainToday()
+    const t = setInterval(fetchRainToday, 60_000)
+    return () => clearInterval(t)
+  }, [])
+
   const onMessage = useCallback((msg) => {
-    if (msg.type === 'init' || msg.type === 'update') setData(msg.data || {})
+    if (msg.type === 'init' || msg.type === 'update') {
+      setData(msg.data || {})
+      setDataVersion(v => v + 1)
+    }
   }, [])
   const connected = useWebSocket(onMessage)
 
@@ -35,6 +51,9 @@ export default function App() {
   const batPct = bat ? Math.min(100, Math.max(0, ((bat - 3.0) / (4.2 - 3.0)) * 100)) : 0
 
   const hasData = Object.keys(data).length > 0
+  const displayData = rainToday != null
+    ? { ...data, rain_total_mm: rainToday }
+    : data
 
   return (
     <div style={{ minHeight: '100vh', background: '#F8F9FA', fontFamily: "'DM Sans', sans-serif" }}>
@@ -140,7 +159,7 @@ export default function App() {
           gap: 10, marginBottom: 10,
         }}>
           {PRIMARY_FIELDS.map(f => (
-            <SensorCard key={f} field={f} data={data}
+            <SensorCard key={f} field={f} data={displayData}
               active={activeField === f}
               onClick={() => setActive(p => p === f ? null : f)}
             />
@@ -154,7 +173,7 @@ export default function App() {
           gap: 10, marginBottom: 20,
         }}>
           {SECONDARY_FIELDS.map(f => (
-            <SensorCard key={f} field={f} data={data}
+            <SensorCard key={f} field={f} data={displayData}
               active={activeField === f}
               onClick={() => setActive(p => p === f ? null : f)}
             />
@@ -195,7 +214,7 @@ export default function App() {
           borderRadius: 24, padding: '28px 28px',
           boxShadow: '0 1px 6px rgba(60,64,67,0.05)',
         }}>
-          <SensorChart field={activeField}/>
+          <SensorChart field={activeField} lastUpdate={dataVersion}/>
         </div>
 
         <p style={{ textAlign: 'center', marginTop: 28, fontSize: 10, color: '#E0E0E0' }}>
