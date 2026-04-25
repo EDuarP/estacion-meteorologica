@@ -10,6 +10,7 @@ export const api = {
   getFields:     ()                        => fetch(`${BASE}/fields`).then(r => r.json()),
   getRainToday:  ()                        => fetch(`${BASE}/rain_today`).then(r => r.json()),
   getPing:       ()                        => fetch(`${BASE}/ping`).then(r => r.json()),
+  getPiPing:     ()                        => fetch(`${BASE}/pi_ping`).then(r => r.json()),
 }
 
 export { WS as WS_URL }

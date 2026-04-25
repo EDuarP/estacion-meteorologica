@@ -1,6 +1,9 @@
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+import asyncio
 import json
+import os
+import time
 
 COLOMBIA_TZ = timezone(timedelta(hours=-5))
 MM_PER_TIP  = 0.011 * 25.4   # 0.2794 mm/tip
@@ -127,6 +130,27 @@ async def get_fields():
 async def ping():
     """Endpoint liviano para medir latencia browser→backend."""
     return {"pong": True}
+
+
+@router.get("/pi_ping")
+async def pi_ping():
+    """Ping ICMP desde el backend hacia la Raspberry Pi (PI_HOST)."""
+    host = os.getenv("PI_HOST", "")
+    if not host:
+        return {"online": False, "ms": None, "host": None}
+    t0 = time.monotonic()
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "ping", "-c", "1", "-W", "2", host,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await asyncio.wait_for(proc.wait(), timeout=3)
+        ms = round((time.monotonic() - t0) * 1000)
+        online = proc.returncode == 0
+        return {"online": online, "ms": ms if online else None, "host": host}
+    except asyncio.TimeoutError:
+        return {"online": False, "ms": None, "host": host}
 
 
 @router.websocket("/ws")

@@ -1,21 +1,13 @@
-// ─── ¿Dónde cambio la IP / host que se mide? ──────────────────────────────────
-//   La tarjeta mide el tiempo de respuesta del backend (la Raspberry Pi).
-//   Cambia la URL destino en docker-compose.yml:
-//     VITE_API_URL=http://<ip-de-la-raspberry>:8000/api
-//   O en un archivo frontend/.env.local:
-//     VITE_API_URL=http://192.168.1.100:8000/api
-// ──────────────────────────────────────────────────────────────────────────────
-
 import { useState, useEffect } from 'react'
 import { api } from '../services/api'
 
 const MAX_HISTORY = 30
-const POLL_MS = 2000
+const POLL_MS = 3000
 
-function pingColor(ms) {
-  if (ms === null) return '#9AA0A6'
-  if (ms < 50)    return '#34A853'
-  if (ms < 150)   return '#F9AB00'
+function pingColor(ms, online) {
+  if (!online || ms === null) return '#9AA0A6'
+  if (ms < 50)  return '#34A853'
+  if (ms < 150) return '#F9AB00'
   return '#EA4335'
 }
 
@@ -48,7 +40,6 @@ function Sparkline({ data, color }) {
         strokeLinecap="round"
         opacity={0.75}
       />
-      {/* Punto actual */}
       {(() => {
         const last = data[data.length - 1]
         if (last === null) return null
@@ -62,6 +53,7 @@ function Sparkline({ data, color }) {
 
 export function PingCard() {
   const [ping,    setPing]    = useState(null)
+  const [online,  setOnline]  = useState(null)
   const [history, setHistory] = useState([])
   const [status,  setStatus]  = useState('idle')
 
@@ -69,16 +61,16 @@ export function PingCard() {
     let timer
 
     async function measure() {
-      const t0 = performance.now()
       try {
-        await api.getPing()
-        const ms = Math.round(performance.now() - t0)
-        setPing(ms)
-        setStatus('ok')
-        setHistory(h => [...h.slice(-(MAX_HISTORY - 1)), ms])
+        const data = await api.getPiPing()
+        setOnline(data.online)
+        setPing(data.ms)
+        setStatus(data.online ? 'ok' : 'offline')
+        setHistory(h => [...h.slice(-(MAX_HISTORY - 1)), data.ms])
       } catch {
-        setStatus('timeout')
+        setOnline(false)
         setPing(null)
+        setStatus('timeout')
         setHistory(h => [...h.slice(-(MAX_HISTORY - 1)), null])
       }
       timer = setTimeout(measure, POLL_MS)
@@ -88,11 +80,19 @@ export function PingCard() {
     return () => clearTimeout(timer)
   }, [])
 
-  const color    = pingColor(ping)
-  const valid    = history.filter(v => v !== null)
-  const minMs    = valid.length ? Math.min(...valid) : null
-  const maxMs    = valid.length ? Math.max(...valid) : null
-  const bgTint   = color + '18'
+  const color  = pingColor(ping, online)
+  const valid  = history.filter(v => v !== null)
+  const minMs  = valid.length ? Math.min(...valid) : null
+  const maxMs  = valid.length ? Math.max(...valid) : null
+  const bgTint = color + '18'
+
+  const valueLabel = status === 'idle'
+    ? '…'
+    : !online
+      ? '—'
+      : ping !== null
+        ? ping
+        : '…'
 
   return (
     <div style={{
@@ -104,7 +104,6 @@ export function PingCard() {
       position: 'relative',
       overflow: 'hidden',
     }}>
-      {/* Fondo tint dinámico */}
       <div style={{
         position: 'absolute', right: -20, top: -20,
         width: 90, height: 90, borderRadius: '50%',
@@ -112,7 +111,6 @@ export function PingCard() {
         transition: 'background 0.5s',
       }}/>
 
-      {/* Icono de red / señal */}
       <div style={{ marginBottom: 14, position: 'relative' }}>
         <svg width={34} height={34} viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="20" r="1.8" fill={color} style={{ transition: 'fill 0.4s' }}/>
@@ -128,17 +126,25 @@ export function PingCard() {
         </svg>
       </div>
 
-      {/* Label */}
       <p style={{
-        margin: '0 0 3px 0',
+        margin: '0 0 1px 0',
         fontSize: 10, fontWeight: 500,
         letterSpacing: '0.09em', textTransform: 'uppercase',
         color: '#9AA0A6', fontFamily: "'DM Sans', sans-serif",
       }}>
-        Ping
+        Ping · Raspberry Pi
       </p>
 
-      {/* Valor principal */}
+      {online === false && status !== 'idle' && (
+        <p style={{
+          margin: '0 0 4px 0', fontSize: 10, fontWeight: 600,
+          color: '#EA4335', fontFamily: "'DM Sans', sans-serif",
+          letterSpacing: '0.05em',
+        }}>
+          OFFLINE
+        </p>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, marginBottom: 6 }}>
         <span style={{
           fontSize: 32, fontWeight: 300, lineHeight: 1,
@@ -147,17 +153,17 @@ export function PingCard() {
           letterSpacing: '-0.02em',
           transition: 'color 0.4s',
         }}>
-          {ping !== null ? ping : (status === 'timeout' ? '—' : '…')}
+          {valueLabel}
         </span>
-        <span style={{ fontSize: 12, color: '#9AA0A6', fontFamily: "'DM Sans', sans-serif" }}>ms</span>
+        {online && ping !== null && (
+          <span style={{ fontSize: 12, color: '#9AA0A6', fontFamily: "'DM Sans', sans-serif" }}>ms</span>
+        )}
       </div>
 
-      {/* Sparkline */}
       <div style={{ marginBottom: 6, opacity: history.length >= 3 ? 1 : 0, transition: 'opacity 0.6s' }}>
         <Sparkline data={history} color={color} />
       </div>
 
-      {/* Min / Max */}
       {minMs !== null ? (
         <div style={{ display: 'flex', gap: 10 }}>
           <span style={{ fontSize: 9, color: '#BDC1C6', fontFamily: "'DM Sans', sans-serif" }}>
