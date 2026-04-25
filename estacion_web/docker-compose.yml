@@ -27,7 +27,7 @@ services:
     environment:
       - MQTT_BROKER=mosquitto     # dentro de Docker usa el nombre del servicio
       - MQTT_PORT=1883
-      - PI_HOST=192.168.40.xxx    # ← cambia esto por la IP de la Raspberry Pi
+      - PI_HOST=192.168.80.20    # ← cambia esto por la IP de la Raspberry Pi
     volumes:
       - ./backend:/app
     depends_on:

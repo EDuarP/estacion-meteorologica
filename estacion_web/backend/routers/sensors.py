@@ -164,8 +164,11 @@ async def websocket_endpoint(websocket: WebSocket):
             pass
 
     register_ws_callback(send)
-    # Enviar estado actual al conectarse
-    await websocket.send_text(json.dumps({"type": "init", "data": latest}))
+    try:
+        await websocket.send_text(json.dumps({"type": "init", "data": latest}))
+    except Exception:
+        unregister_ws_callback(send)
+        return
 
     try:
         while True:
