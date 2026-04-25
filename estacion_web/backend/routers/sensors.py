@@ -123,6 +123,12 @@ async def get_fields():
     return FIELD_META
 
 
+@router.get("/ping")
+async def ping():
+    """Endpoint liviano para medir latencia browser→backend."""
+    return {"pong": True}
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()

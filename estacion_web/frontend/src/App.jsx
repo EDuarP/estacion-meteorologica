@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { SensorCard } from '../components/SensorCard'
 import { SensorChart } from '../components/SensorChart'
 import { WeatherIcons, FIELD_CONFIG, PRIMARY_FIELDS, SECONDARY_FIELDS } from '../components/WeatherIcons'
+import { PingCard } from '../components/PingCard'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { api } from '../services/api'
 
@@ -178,6 +179,9 @@ export default function App() {
               onClick={() => setActive(p => p === f ? null : f)}
             />
           ))}
+
+          {/* Tarjeta ping / latencia de red */}
+          <PingCard />
 
           {/* Tarjeta info millis/sample */}
           {hasData && (
